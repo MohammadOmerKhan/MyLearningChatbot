@@ -40,13 +40,13 @@ async def get_chat_history(session_id: str, limit: int = 5):
 
 async def save_to_database(session_id: str, user_message: str, ai_response: str):
     try:
-        from main import chat_collection
+        from main import chat_collection #get the chat collection from chatbot database
 
         message_doc = {
             "session_id": session_id,
             "user_message": user_message,
             "ai_response": ai_response,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.ctime(),
         }
 
         await chat_collection.insert_one(message_doc)
