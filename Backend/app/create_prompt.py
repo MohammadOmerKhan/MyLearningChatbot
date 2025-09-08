@@ -41,4 +41,4 @@ langfuse.create_prompt(
     }
 )
 
-print("✅ ReAct prompt 'react-agent' created or updated in Langfuse")
+print("ReAct prompt 'react-agent' created or updated in Langfuse")
