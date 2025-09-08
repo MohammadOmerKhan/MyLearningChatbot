@@ -6,9 +6,13 @@ from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
 from dotenv import load_dotenv
+from langfuse import get_client
+from langchain_core.prompts import ChatPromptTemplate
 import os
 
 load_dotenv()
+
+langfuse = get_client()
 
 
 class State(TypedDict):  # TypedDict is a type that defines the structure of the state
@@ -81,6 +85,12 @@ tools = [rag_search, web_search]  # tools is a list of the tools
 llm_with_tools = llm.bind_tools(
     tools
 )  # bind_tools is a method that binds the tools to the LLM
+
+
+def get_react_prompt():
+
+    lf_prompt = langfuse.get_prompt("react-agent", type="chat", label="production")
+    return ChatPromptTemplate.from_messages(lf_prompt.get_langchain_prompt())
 
 
 def chatbot(state: State):
@@ -167,6 +177,14 @@ async def run_react_agent(
     try:
         # Build messages from conversation history
         messages = []
+
+        react_prompt = get_react_prompt()#get prompt from langfuse
+        rendered_prompt = react_prompt.format_messages(input=user_message)#format langfuse repsonse for langgraph
+        messages.extend(rendered_prompt)
+
+        #for msg in react_prompt.messages:
+            #messages.append(msg)
+
         if conversation_history:
             for msg in conversation_history:
                 messages.append(

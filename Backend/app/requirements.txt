@@ -29,3 +29,6 @@ structlog==23.2.0
 # Tavily API
 tavily-python==0.3.0
 langchain-tavily>=0.1.0
+
+# Observability & Prompt Management
+langfuse>=2.0.0
