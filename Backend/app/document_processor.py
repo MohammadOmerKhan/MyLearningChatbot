@@ -3,18 +3,22 @@ import uuid
 from typing import List, Dict
 from datetime import datetime
 import PyPDF2
-from docx import Document
+from docx import Document as DocxDocument
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 class DocumentProcessor:
     def __init__(self):
-        self.embedding_model = None  # SentenceTransformer("all-MiniLM-L6-v2")
+        self.embedding_model = None
 
-    def _get_embedding_model(self):  # get the embedding model if it is not already loaded. This is a lazy loading technique to avoid loading the model until it is needed.
+    def _get_embedding_model(
+        self,
+    ):  # get the embedding model if it is not already loaded. This is a lazy loading technique to avoid loading the model until it is needed.
         if self.embedding_model is None:
-            self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+            self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         return self.embedding_model
 
     def extract_text_from_pdf(self, file_path: str) -> str:
@@ -33,7 +37,9 @@ class DocumentProcessor:
         return text
 
     def extract_text_from_docx(self, file_path: str) -> str:
-        doc = Document(file_path)  # document is a class in docx that reads docx files
+        doc = DocxDocument(
+            file_path
+        )  # document is a class in docx that reads docx files
         text = ""
         for paragraph in doc.paragraphs:  # for each paragraph in the document
             text += (
@@ -52,7 +58,7 @@ class DocumentProcessor:
 
         while start < len(text):  # slice text from start to end
             end = start + chunk_size
-            chunk = text[start:end]#slciing text from start to end
+            chunk = text[start:end]  # slciing text from start to end
 
             if end < len(text):
                 last_period = chunk.rfind(
@@ -92,29 +98,37 @@ class DocumentProcessor:
             )  # call the chunk_text function to chunk the text
 
             embedding_model = self._get_embedding_model()
-        
+
             from main import database
+
             collection = database.document_chunks
 
-        
             saved_chunks = 0
             for i, chunk in enumerate(chunks):
-                
-                embedding = embedding_model.encode([chunk])[0].tolist()#creating vector representation by passing single chunk as list to embedding model
-            
-                # Save to database
-                doc = {
-                    "filename": filename,
-                    "chunk_index": i,
-                    "text": chunk,
-                    "embedding": embedding,
-                    "timestamp": datetime.utcnow()
-                }
-                await collection.insert_one(doc)
-                saved_chunks += 1
-        
 
-            return f"Document '{filename}' saved to database. Total {saved_chunks} chunks."
+                try:
+
+                    embedding = embedding_model.embed_query(
+                        chunk
+                    )  # creating vector representation by passing single chunk as list to embedding model
+
+                    # Save to database
+                    doc_dict = {
+                        "text": chunk,
+                        "filename": filename,
+                        "chunk_index": i,
+                        "timestamp": datetime.utcnow(),
+                        "embedding": embedding,
+                    }
+                    await collection.insert_one(doc_dict)
+                    saved_chunks += 1
+                except Exception as e:
+                    print(f"Error processing chunk {i}: {e}")
+                    continue
+
+            return (
+                f"Document '{filename}' saved to database. Total {saved_chunks} chunks."
+            )
 
         except Exception as e:
             return f"Error processing document: {str(e)}"

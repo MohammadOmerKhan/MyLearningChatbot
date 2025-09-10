@@ -1,22 +1,23 @@
 import os
 from typing import List, Dict
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
 
 
 class RAGTool:
     def __init__(self):
         self.name = "RAGTool"
         self.description = "Retrieve, augment and generate"
-        self.embeddingModel = SentenceTransformer(
-            "all-Mini-L6-v2"
-        )  # Secret sauce that creates the vector embeddings for the documents
+        self.embeddingModel = OpenAIEmbeddings(
+            model="text-embedding-3-small"
+        )  # OpenAI embeddings for better performance  # Secret sauce that creates the vector embeddings for the documents
 
     async def search_documents(self, query: str, limit: int = 5):
         try:
-            queryEmbedding = self.embeddingModel.encode([query])[
-                0
-            ]  # uses the sauce to create the vector embedding for the query
+            queryEmbedding = self.embeddingModel.embed_query(
+                query
+            )  # uses the sauce to create the vector embedding for the query
 
             from main import database
 
@@ -32,16 +33,17 @@ class RAGTool:
                         queryEmbedding, doc["embedding"]
                     )
 
-                    results.append(
-                        {
-                            "text": doc["text"],
+                    doc_obj = Document(
+                        page_content=doc["text"],
+                        metadata={
                             "filename": doc["filename"],
-                            "similarity": similarity,
                             "chunk_index": doc["chunk_index"],
-                        }
+                            "similarity": similarity,
+                        },
                     )
+                    results.append(doc_obj)
 
-            results.sort(key=lambda x: x["similarity"], reverse=True)
+            results.sort(key=lambda x: x.metadata["similarity"], reverse=True)
             return results[:limit]
 
         except Exception as e:
@@ -59,15 +61,16 @@ class RAGTool:
     1 means they have the same direction so same semantic meaning, 0 means they are perpendicular
     so no similarity, and -1 means they have opposite directions so opposite semantic meaning."""
 
-
-    def format_results(self, results: List[Dict]) -> str:
+    def format_results(self, results: List[Document]) -> str:
         if not results:
             return "No relevant documents found."
 
         formatted = "Relevant document information:\n"
-        for i, result in enumerate(results, 1):
-            formatted += f"{i}. From {result['filename']} (similarity: {result['similarity']:.2f}):\n"
-            formatted += f"   {result['text'][:300]}...\n\n"
+        for i, doc in enumerate(results, 1):
+            filename = doc.metadata.get("filename", "Unknown")
+            similarity = doc.metadata.get("similarity", 0)
+            formatted += f"{i}. From {filename} (similarity: {similarity:.2f}):\n"
+            formatted += f"   {doc.page_content[:300]}...\n\n"
 
         return formatted
 
