@@ -12,6 +12,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 import os
 import concurrent.futures
 import asyncio
+import requests
+from datetime import datetime
 
 load_dotenv()
 langfuse = get_client()
@@ -37,7 +39,7 @@ def rag_search(query: str) -> str:
             # If we're in a loop, we need to run the async function differently
             import concurrent.futures
             import threading
-            
+
             def run_async_in_thread():
                 # Create a new event loop in the thread
                 new_loop = asyncio.new_event_loop()
@@ -46,11 +48,11 @@ def rag_search(query: str) -> str:
                     return new_loop.run_until_complete(rag_tool.search_documents(query))
                 finally:
                     new_loop.close()
-            
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(run_async_in_thread)
                 results = future.result()
-                
+
         except RuntimeError:
             # No running loop, we can use asyncio.run directly
             results = asyncio.run(rag_tool.search_documents(query))
@@ -63,7 +65,76 @@ def rag_search(query: str) -> str:
         return f"RAG search tool error: {e}"
 
 
-tools = [web_search_tool, rag_search]
+@tool
+def n8n_webhook_email_trigger(message: str, email: str) -> str:
+    """Trigger the n8n webhook with a message."""
+
+    try:
+        webhook_url = "https://omerkhan.app.n8n.cloud/webhook-test/test-webhook"
+
+        payload = {
+            "action": "send_email",
+            "message": message,
+            "recipient_email": email,
+            "subject": "Message from AI Agent",
+            "timestamp": str(datetime.now()),
+            "source": "ai_agent",
+        }
+
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+
+        if response.status_code in [200, 201]:
+            return f"Webhook triggered successfully! Response: {response.text}"
+        else:
+            return f"Webhook error: {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return f"n8n webhook error: {str(e)}"
+
+
+@tool
+def n8n_webhook_sheets_trigger(action: str, sheet_name: str, **kwargs) -> str:
+    """Trigger the n8n webhook with a sheets data. action is either create_sheet or update_sheet. Set sheet-name to the sheet name the
+    user wants to create or update. The data fields are the data fields the user wants to create or update. The key you create will be the column header
+    and the value will be the data the user wants to create or update.
+     """
+
+    try:
+        webhook_url = "https://omerkhan.app.n8n.cloud/webhook-test/test-webhook"
+
+        data_fields = dict(kwargs)
+
+        payload = {"action": action, "sheet_name": sheet_name, "data": data_fields}
+
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+
+        if response.status_code in [200, 201]:
+            return f"Webhook triggered successfully! Response: {response.text}"
+        else:
+            return f"Webhook error: {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return f"n8n webhook error: {str(e)}"
+
+
+tools = [
+    rag_search,
+    web_search_tool,
+    n8n_webhook_email_trigger,
+    n8n_webhook_sheets_trigger
+]  # tools is a list of the tools
+
+
 tools_by_name = {
     tool.name: tool for tool in tools
 }  # create a dictionary of the tools by name. Makes it easier to call the tools by name.

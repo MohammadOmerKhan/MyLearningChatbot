@@ -11,6 +11,7 @@ from datetime import datetime
 from models.chat import ChatRequest, ChatResponse
 from routers.chat import chat_router
 from routers.documents import documentRouter
+from routers.sheets import sheets_router
 
 
 load_dotenv()
@@ -36,6 +37,7 @@ database = client[MONGODB_DBNAME]
 
 chat_collection = database.chat_sessions
 document_chunks_collection = database.document_chunks
+sheets_data_collection = database.sheets_data
 
 
 @app.get("/health")
@@ -45,7 +47,7 @@ async def health_check():
 
 app.include_router(chat_router)
 app.include_router(documentRouter)
-
+app.include_router(sheets_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
