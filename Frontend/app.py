@@ -5,13 +5,16 @@ import json
 current_session_id = None
 
 
-def chat_with_ai(message, history):
+def chat_with_ai(message, history, timezone):
     global current_session_id
 
     try:
         response = requests.post(
             "http://localhost:8000/chat/send",
-            json={"message": message, "session_id": current_session_id},
+            json={
+                "message": f"[User timezone: {timezone}] {message}",
+                "session_id": current_session_id,
+            },
         )
 
         if response.status_code == 200:
@@ -61,14 +64,26 @@ with gr.Blocks() as demo:
             save_btn = gr.Button("Save to Database", variant="secondary")
             save_status = gr.Textbox(label="Save Status", interactive=False)
 
+
+
+    timezone_input = gr.Textbox(visible=False, value="UTC")
+
+    """demo.load(
+        lambda: None,
+        None,
+        timezone_input,
+        _js="() => Intl.DateTimeFormat().resolvedOptions().timeZone",
+    )"""
+
     save_btn.click(
         fn=save_document_to_db, inputs=[file_input], outputs=[save_status]
     )  # save to database function called
 
     submit_btn.click(
         fn=chat_with_ai,
-        inputs=[msg, chatbot],
+        inputs=[msg, chatbot, timezone_input],
         outputs=[chatbot],  # chat function called
+        js="(msg, chatbot, tz) => [msg, chatbot, Intl.DateTimeFormat().resolvedOptions().timeZone]"
     )
 
 

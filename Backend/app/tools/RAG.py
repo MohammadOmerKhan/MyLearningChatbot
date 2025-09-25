@@ -3,6 +3,15 @@ from typing import List, Dict
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
+import pymongo
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+MONGODB_URL = os.getenv("MONGODB_URL")
+MONGODB_DBNAME = os.getenv("MONGODB_DBNAME")
 
 
 class RAGTool:
@@ -13,18 +22,19 @@ class RAGTool:
             model="text-embedding-3-small"
         )  # OpenAI embeddings for better performance  # Secret sauce that creates the vector embeddings for the documents
 
-    async def search_documents(self, query: str, limit: int = 5):
+    def search_documents(self, query: str, limit: int = 5):
+        print(f"�� RAG search_documents called with query: {query}")
+
         try:
             queryEmbedding = self.embeddingModel.embed_query(
                 query
             )  # uses the sauce to create the vector embedding for the query
 
-            from main import database
+            sync_client = pymongo.MongoClient(MONGODB_URL)
+            sync_database = sync_client[MONGODB_DBNAME]
+            collection = sync_database.document_chunks
 
-            collection = database.document_chunks  # Fixed collection name
-
-            cursor = collection.find({})
-            documents = await cursor.to_list(length=None)
+            documents = list(collection.find({})) 
 
             results = []
             for doc in documents:

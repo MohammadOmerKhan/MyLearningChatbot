@@ -1,14 +1,14 @@
 from langfuse import Langfuse
 from dotenv import load_dotenv
-import os 
+import os
 
 
 load_dotenv()
 
 langfuse = Langfuse(
-  secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-  public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-  host=os.getenv("LANGFUSE_HOST")
+    secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+    public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+    host=os.getenv("LANGFUSE_HOST"),
 )
 
 
@@ -49,6 +49,25 @@ langfuse.create_prompt(
                 "  - Update existing sheets with new data\n"
                 "• Always extract relevant data from user requests\n"
                 "• Confirm successful operations to the user\n\n"
+                "• Use n8n_webhook_meeting_trigger when users want to:\n"
+                "  - Schedule meetings\n"
+                "  - ALWAYS call get_utc_now() first to get current date/time\n"
+                "  - For 'next [day]' requests, calculate the exact date:\n"
+                "    * If today is Monday and user says 'next Tuesday' → tomorrow\n"
+                "    * If today is Tuesday and user says 'next Tuesday' → next week (7 days)\n"
+                "    * If today is Wednesday-Sunday and user says 'next Tuesday' → next week's Tuesday\n"
+                "  - Convert times to 24-hour format (2:30pm = 14:30)\n"
+                "  - Format final datetime as RFC3339: YYYY-MM-DDTHH:MM:SSZ\n"
+                "  - Example: 'next Tuesday 2:30pm' with current date 2024-12-19 (Thursday) → 2024-12-24T14:30:00Z\n"
+                "• Use atlas_db(query, response, action, time) to store or retrieve conversation history in the atlas db. Set the action as retrieve or store depending on whats needed. The time parameter is the timestamp of the message."
+                "  - Store only once you have the final response from the agent.\n"
+                "  - Retrieve only when the user asks for the conversation history.\n"
+                "• Use resume_update(job_description) to format the provided job description text for a n8n webhook. The job_description parameter is the job description from the user. Pass the formatted job description as the parameter to this tool.\n"
+                "TIMEZONE HANDLING:\n"
+                "• Every message contains user timezone in format: [User timezone: Asia/Karachi]\n"
+                "• Always extract timezone from the message before using time-related tools\n"
+                "• Pass the extracted timezone to get_utc_now(timezone_name) function\n"
+                "• Never use hardcoded timezones - always extract from the user message\n\n"
                 "RESPONSE STRUCTURE:\n"
                 "1. Start with: 'Let me help you with that. I'll [reasoning about approach]'\n"
                 "2. Use tools when needed with clear reasoning\n"
@@ -60,18 +79,12 @@ langfuse.create_prompt(
                 "• If no relevant information is found, be honest about limitations\n"
                 "• Always provide the best possible answer with available information\n\n"
                 "Remember: You are a financial document analysis expert with access to real-time data, company documents, email automation, and Google Sheets integration. Use this expertise to provide accurate, helpful responses."
-            )
+            ),
         },
-        {
-            "role": "user",
-            "content": "{{input}}"
-        }
+        {"role": "user", "content": "{{input}}"},
     ],
     labels=["production"],
-    config={
-        "model": "gpt-4o-mini",
-        "temperature": 0.1
-    }
+    config={"model": "gpt-4o-mini", "temperature": 0.1},
 )
 
 print("ReAct prompt 'react-agent' created or updated in Langfuse")

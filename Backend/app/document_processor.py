@@ -107,10 +107,12 @@ class DocumentProcessor:
             for i, chunk in enumerate(chunks):
 
                 try:
+                    print(f"Processing chunk {i+1}/{len(chunks)}")
 
                     embedding = embedding_model.embed_query(
                         chunk
                     )  # creating vector representation by passing single chunk as list to embedding model
+                    print(f"generated embedding for chunk: {i+1}")
 
                     # Save to database
                     doc_dict = {
@@ -122,6 +124,7 @@ class DocumentProcessor:
                     }
                     await collection.insert_one(doc_dict)
                     saved_chunks += 1
+                    print(f"saved chunk {i+1} to database")
                 except Exception as e:
                     print(f"Error processing chunk {i}: {e}")
                     continue
